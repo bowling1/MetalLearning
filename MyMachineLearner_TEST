@@ -3,6 +3,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeRegressor
+from numpy import mean
 
 file1_path = 'Metal Sheet 2 - Sheet1.csv'
 
@@ -22,27 +23,40 @@ one_hot1 = pd.get_dummies(cat_features[0])
 one_hot2 = pd.get_dummies(cat_features[1])
 one_hot3 = pd.get_dummies(cat_features[2])
 
-OH_column1 = list(one_hot1.columns)
-OH_column2 = list(one_hot2.columns)
-OH_column3 = list(one_hot3.columns)
-
 data = pd.concat([data, one_hot1], axis=1)
 data = pd.concat([data, one_hot2], axis=1)
 data = pd.concat([data, one_hot3], axis=1)
 data.drop(data.columns[[0,1,4]], axis=1, inplace=True)
 
-y = data.Relistenability
-features = data.columns
-x = data[features]
+n = 88
 
-train_x, val_x, train_y, val_y = train_test_split(x, y, random_state=1)
+y = data.Relistenability[0:n-1]
+
+features = data.columns
+x = data.loc[0:n]
+x.drop(x.columns[2], axis=1, inplace=True)
+x.drop(x.columns[[3, 4, 14, 15]], axis=1, inplace=True)
+print(x.columns)
+
+#train_x, val_x, train_y, val_y = train_test_split(x, y, random_state=1)
 
 def get_mae(max_leaf, train_x, train_y, val_x, val_y):
-	model1 = RandomForestRegressor(max_leaf_nodes=max_leaf, random_state=1)
+	model1 = RandomForestRegressor(max_leaf_nodes=max_leaf, random_state=0)
 	model1.fit(train_x, train_y)
 	predict = model1.predict(val_x)
 	val_mae = mean_absolute_error(predict, val_y)
 	return val_mae
+
+predict_list = []
+for i in range(1,10):
+	model1 = RandomForestRegressor(max_leaf_nodes=500, random_state=i)
+	model1.fit(x.loc[0:n-2], y)
+	predict = model1.predict(x.loc[[n-1]])
+	predict_list.append(predict)
+predict = mean(predict_list)
+print(predict)
+
+'''
 val_mae_top = 5
 tree_top = 0
 for i in range(5,100, 1):
@@ -53,3 +67,4 @@ for i in range(5,100, 1):
 
 print(val_mae_top)
 print(tree_top)
+'''
