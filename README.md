@@ -1,4 +1,4 @@
-# MetalRater
+# Metal Learning
 Looks at how I rate metal albums I've already listened to, then finds albums I'd like from Encyclopedia Metallum.
 
 
