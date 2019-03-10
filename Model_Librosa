@@ -1,0 +1,154 @@
+import librosa.feature
+from numpy import mean
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+import pickle
+from random import shuffle
+
+
+def import_data(filename):
+	y, sr = librosa.load(filename)
+	return y, sr
+
+# -----------------------------------------------------------------------------------------------------------------------------------
+# Input: Desired size of each chunk in seconds (chunk_size_s), Mono waveform data (sound_data), frames collected per second (frame_rate)
+# Output: A list of lists, where each sublist contains a X second long chunk of waveform data
+# Notes: Some of the song gets cut off to keep the chunk size a whole number
+def split_song(chunk_size_s, sound_data, frame_rate):
+	length_s = len(sound_data)/frame_rate # Length of the audio in seconds
+	cut_off_s = length_s%chunk_size_s # Slicing off last bit of the audio to keep num_of_chunks a whole number (seconds)
+	num_of_chunks = (length_s-cut_off_s)/chunk_size_s # Number of chunks generated
+	chunk_size_f = chunk_size_s * frame_rate # Size of each chunk in frames
+	cut_off_f = cut_off_s*frame_rate
+	cut_sound_data = sound_data[0:int((len(sound_data)-cut_off_f))]
+	chunked_song = [sound_data[i: i + chunk_size_f] for i in range(0, len(cut_sound_data), chunk_size_f)]
+	return chunked_song
+
+def extract_features(data, sr):
+	s_centroid = mean(librosa.feature.spectral_centroid(data, sr)[0])
+	rms = mean(librosa.feature.rmse(y=data)[0])
+	s_bandwidth = mean(librosa.feature.spectral_bandwidth(y=data, sr=sr)[0])
+	#s_contrast = librosa.feature.spectral_contrast(y=data, sr=sr)
+	#print(s_contrast)
+	s_flatness = mean(librosa.feature.spectral_flatness(y=data)[0])
+	s_roloff = mean(librosa.feature.spectral_rolloff(y=data, sr=sr)[0])
+	zero_xrate = mean(librosa.feature.zero_crossing_rate(y=data)[0])
+	return [s_centroid, rms, s_bandwidth, s_flatness, s_roloff, zero_xrate]
+
+def song_to_dataframe(y, sr, chunk_size, songname):
+	columns=["s_centroid", "rms", "s_bandwidth", "s_flatness", "s_roloff", "zero_xrate", "songname"]
+	chunked_song = split_song(chunk_size, y, sr)
+	df_list = []
+	for i in range(len(chunked_song)):
+		features = extract_features(chunked_song[i], sr)
+		features.append(songname)
+		df_list.append(features)
+	df = pd.DataFrame(df_list, columns=columns)
+	return df
+
+def genre_import(genre_name):
+	data_list = []
+	sr_list = []
+	count = 0
+	while True:
+		try:
+			y, sr = import_data("C:\\git\\MetalRater\\Genre_MasterLists\\" + genre_name + str(count) + ".wav")
+			data_list.append(y)
+			sr_list.append(sr)
+			count += 1
+			print(count)
+		except:
+			break
+	return data_list, sr_list
+
+def testtrainsplit_songs(song_list, test_size):
+	shuffle(song_list)
+	train_songs = song_list[0:round((len(song_list)*(1-test_size)))]
+	test_songs = song_list[round(len(song_list)*(1-test_size)): len(song_list)]
+	return train_songs, test_songs
+
+def create_traintest(Total_Data, splitratio):
+	print("Splitting the Dataframes into Test/Train...")
+	train_songs, test_songs = testtrainsplit_songs(Total_Data, splitratio)
+	columns=["s_centroid", "rms", "s_bandwidth", "s_flatness", "s_roloff", "zero_xrate", "songname"]
+	train = pd.DataFrame(columns=columns)
+	test = pd.DataFrame(columns=columns)
+	for i in range(len(train_songs)):
+		train= pd.concat([train, train_songs[i]], ignore_index=True)
+	for i in range(len(test_songs)):
+		test = pd.concat([test, test_songs[i]], ignore_index=True)
+	return train, test
+
+# ----------------------------------------------------------------------------------------------------
+# Importing two lists: one with the librosa waveform, one with sample rates.
+Cavern, Cavern_SR = genre_import("Cavern_Death")
+print("Imported Cavern Death!")
+Doom, Doom_SR = genre_import("Classic_Doom")
+
+# ----------------------------------------------------------------------------------------------------
+# Creating Dataframes of the librosa features, then putting these dataframes into a list of all the song features
+print("Starting to create DataFrames...")
+Cavern_Data = []
+Doom_Data = []
+for i in range(len(Cavern)):
+	Cavern_Song = song_to_dataframe(Cavern[i], Cavern_SR[i], 5, 0)
+	Cavern_Data.append(Cavern_Song)
+	print(str(i)+ " Cavern song done")
+for i in range(len(Doom)):
+	Doom_Song = song_to_dataframe(Doom[i], Doom_SR[i], 5, 1)
+	Doom_Data.append(Doom_Song)
+	print(str(i)+ " Doom song done")
+Total_Data = Cavern_Data + Doom_Data
+
+# ----------------------------------------------------------------------------------------------------
+# Creating Dataframes of the librosa features, then putting these dataframes into a list of all the song features
+accuracy_list = []
+for i in range(100):
+	train, test = create_traintest(Total_Data, 0.25)
+	X_features = ["s_centroid", "rms", "s_bandwidth", "s_flatness", "s_roloff", "zero_xrate"]
+
+	# -----------------------------------------------------------------------------------------------------
+	# Finding the accuracy
+	print("Finding accuracy of the model...")
+	rf = RandomForestClassifier()
+	trainX = train[X_features]
+	trainY = train["songname"]
+	trainY = trainY.astype('int')
+	trainX = trainX.astype('int')
+	testX = test[X_features]
+	testY = test["songname"]
+	testY = testY.astype('int')
+	testX = testX.astype('int')
+	rf.fit(trainX, trainY)
+	pickle.dump(rf, open("Librosa_Model.sav", 'wb'))
+	predictions_forest = rf.predict(testX)
+	accuracy_forest = accuracy_score(testY, predictions_forest)
+	accuracy_list.append(accuracy_forest)
+	print(accuracy_forest)
+print("The accuracy of the model is about: " + str(mean(accuracy_list)))
+'''
+print("The Black metal stuff...")
+is_it_BM(0, Test_Data["songname"], predictions_forest)
+print("The DOom metal stuff...")
+is_it_BM(1, Test_Data["songname"], predictions_forest)
+
+
+
+# features - Spectral centroid, RMS, Spectral bandwidth, Spectral flatness, Spectral roloff, and Zero-crossing-rate
+
+
+# Results:
+# Enya (one song) vs Dark Funeral = 96%
+# Enya (3 songs) vs Black Metal (3 songs) = 97%
+# Enya (one song test, 2 song train) vs BM (1 test, 2 train) = 96%  **POSSIBLY FAULTY TEST**
+# Doom (one song test, 2 song train) vs BM (1 test, 2 train) = 49%  **POSSIBLY FAULTY TEST**
+# REDO: Doom (one song test, 2 song train) vs BM (1 test, 2 train) = 98%, 56%, 65% [Not as good as I'd like it to be]
+# Doom (9 songs) vs CavernDeath (7 songs) at 30% test = 37%, (20% test) 68%
+
+# Further Action:
+# Add more songs to the model to give a more broad coverage. Also make the entries not hardcoded but come from .csv
+# Add more features
+# Refine current features to be more effective
+'''
