@@ -1,0 +1,54 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.io.wavfile
+import librosa
+import librosa.display
+from scipy import misc
+
+# -----------------------------------------------------------------------------------------------------------------------------------
+# Input: .wav file name
+# Output: Numpy array of sound data values (Mono_data), sampling rate of the file in frames/sec (fs1)
+# Notes: May want to convert this to frequency domain. Apparently.
+def wav_to_MonoData(filename):
+	fs1, y1 = scipy.io.wavfile.read(filename)
+	Mono_data = y1.sum(axis=1)/2
+	time = np.arange(len(Mono_data))
+	return Mono_data, fs1
+
+# -----------------------------------------------------------------------------------------------------------------------------------
+# Input: Desired size of each chunk in seconds (chunk_size_s), Mono waveform data (sound_data), frames collected per second (frame_rate)
+# Output: A list of lists, where each sublist contains a X second long chunk of waveform data
+# Notes: Some of the song gets cut off to keep the chunk size a whole number
+def split_song(chunk_size_s, sound_data, frame_rate):
+	length_s = len(sound_data)/frame_rate # Length of the audio in seconds
+	cut_off_s = length_s%chunk_size_s # Slicing off last bit of the audio to keep num_of_chunks a whole number (seconds)
+	num_of_chunks = (length_s-cut_off_s)/chunk_size_s # Number of chunks generated
+	chunk_size_f = chunk_size_s * frame_rate # Size of each chunk in frames
+	cut_off_f = cut_off_s*frame_rate
+	cut_sound_data = sound_data[0:int((len(sound_data)-cut_off_f))]
+	chunked_song = [sound_data[i: i + chunk_size_f] for i in range(0, len(cut_sound_data), chunk_size_f)]
+	return chunked_song
+# -----------------------------------------------------------------------------------------------------------------------------------
+# Not sure if this is actually a fourier transform, but it outputs a spectrogram (very low quality)
+# As of now, this just outputs the spectrogram in frequency domain. Unsure of the resolution, as that might be important for DL
+def create_spectrogram(data):
+	S = np.abs(librosa.stft(data))
+	spectrogram = librosa.display.specshow(S**2, sr=16000, y_axis='log', x_axis=None, cmap='gray_r')
+	spectrogram.axes.get_yaxis().set_visible(False)
+	plt.savefig('TempImage\\plot_1.png')
+
+# ------------------------------------------------------------------------------------------------------------------------------------
+# Turns an image in a folder into a 2d numpy array. In this case, it also inverts the color and normalizes it from (0, 1)
+def image_to_numpy_array(img_location):
+	img = (misc.imread(img_location)-255.001)/(-255)
+	return img
+
+
+
+wav_file = "C:\\git\\MetalRater\\Genre_MasterLists\\Cavern_Death0.wav"
+
+Mono_data, fs1 = wav_to_MonoData(wav_file)
+chunked_song = split_song(2,Mono_data,fs1)
+create_spectrogram(chunked_song[50])
+image_to_numpy_array('TempImage\\plot_1.png')
+
