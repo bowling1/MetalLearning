@@ -28,118 +28,121 @@ def image_to_numpy_array(img_location):
 	return img[50:125]
 
 
-Cavern_sections = []
-Doom_sections = []
-Test_sections = []
 
 
-for i in range(166):
-	Cavern_sections.append([1, image_to_numpy_array('TempImage\\Cavern_Death0_' + str(i) + '.jpg')])
-	print(i)
+All_sections = []
+Temp_sections = []
+genres = ["Classic_Doom", "Cavern_Death"]
 
-for i in range(185):
-	Doom_sections.append([0, image_to_numpy_array('TempImage\\Classic_Doom0_' + str(i) + '.jpg')])
-	print(i)
 
-for i in range(156):
-	Cavern_sections.append([1, image_to_numpy_array('TempImage\\Cavern_Death1_' + str(i) + '.jpg')])
-	print(i)
+for i in range(len(genres)):
+	fail_count = 0
+	song_count = 0
+	while fail_count < 2:
+		section_count = 0
+		Temp_sections = []
+		#fail_count = 0
+		while True:
+			try:
+				section = [i, image_to_numpy_array('TempImage\\' + genres[i] + str(song_count) + '_' + str(section_count) + '.jpg')]
+				print("Song number: %i" % song_count)
+				print("Section number: %i" % section_count)
+				Temp_sections.append(section)
+				fail_count = 0
+			except:
+				fail_count += 1
+				break
+			section_count += 1
+			print("Fail count: %i" % fail_count)
+		print("Temp section length is" + str(len(Temp_sections)))
+		if len(Temp_sections) > 1:
+			All_sections.append(Temp_sections)
+		song_count += 1
 
-for i in range(205):
-	Doom_sections.append([0, image_to_numpy_array('TempImage\\Classic_Doom1_' + str(i) + '.jpg')])
-	print(i)
-
-for i in range(206):
-	Cavern_sections.append([1, image_to_numpy_array('TempImage\\Cavern_Death2_' + str(i) + '.jpg')])
-	print(i)
-
-for i in range(225):
-	Doom_sections.append([0, image_to_numpy_array('TempImage\\Classic_Doom2_' + str(i) + '.jpg')])
-	print(i)
-
-for i in range(105):
-	Cavern_sections.append([1, image_to_numpy_array('TempImage\\Cavern_Death3_' + str(i) + '.jpg')])
-	print(i)
-
-for i in range(209):
-	Doom_sections.append([0, image_to_numpy_array('TempImage\\Classic_Doom3_' + str(i) + '.jpg')])
-	print(i)
-
-for i in range(132):
-	Cavern_sections.append([1, image_to_numpy_array('TempImage\\Cavern_Death4_' + str(i) + '.jpg')])
-	print(i)
-
-for i in range(116):
-	Doom_sections.append([0, image_to_numpy_array('TempImage\\Classic_Doom4_' + str(i) + '.jpg')])
-	print(i)
-
-for i in range(106):
-	Test_sections.append([1, image_to_numpy_array('TempImage\\Cavern_Death5_' + str(i) + '.jpg')])
-	print(i)
-
-for i in range(119):
-	Test_sections.append([0, image_to_numpy_array('TempImage\\Classic_Doom5_' + str(i) + '.jpg')])
-	print(i)
-
-for i in range(173):
-	Cavern_sections.append([1, image_to_numpy_array('TempImage\\Cavern_Death6_' + str(i) + '.jpg')])
-	print(i)
-
-for i in range(126):
-	Doom_sections.append([0, image_to_numpy_array('TempImage\\Classic_Doom6_' + str(i) + '.jpg')])
-	print(i)
+for i in range(len(All_sections)):
+	print(len(All_sections[i]))
 
 # ----------------------------------------
+accuracy_net = []
 
-full_data = Cavern_sections + Doom_sections
-pre_x = []
-pre_y = []
-test_x = []
-test_y = []
-pickle.dump(full_data, open("spectro_gallery.sav", 'wb'))
-for i in range(len(full_data)):
-	pre_x.append(full_data[i][1])
-	pre_y.append(full_data[i][0])
+#pickle.dump(All_sections, open("spectro_gallery.sav", 'wb'))
+#All_sections = pickle.load("spectro_gallery.sav")
 
-for i in range(len(Test_sections)):
-	test_x.append(Test_sections[i][1])
-	test_y.append(Test_sections[i][0])
+print(type(All_sections))
 
-#x_train, x_val, y_train, y_val = train_test_split(pre_x, pre_y, test_size=0.2)
-#x_train = np.array(x_train)
-#x_val = np.array(x_val)
-#x_train = x_train.reshape(-1, 480, 640, 1)
-#x_val = x_val.reshape(-1, 480, 640, 1)
-pre_x = np.array(pre_x)
-test_x = np.array(test_x)
+for i in range(len(All_sections)):
 
-model = Sequential()
-model.add(Conv2D(32, (3, 3), input_shape=(75, 192, 1), activation='relu', ))
-model.add(MaxPool2D((2, 2)))
-model.add(Conv2D(64, (3, 3), activation='relu'))
-model.add(MaxPool2D((2, 2)))
-model.add(Conv2D(128, (3, 3), activation='relu'))
-model.add(MaxPool2D((2, 2)))
-model.add(Conv2D(128, (3, 3), activation='relu'))
-model.add(MaxPool2D((2, 2)))
-model.add(Flatten())
-model.add(Dropout(0.5))
-model.add(Dense(512, activation='relu'))
-model.add(Dense(1, activation='sigmoid'))
+	full_data = []
+	Test_sections = All_sections[i]
+	for n in range(len(All_sections)):
+		if i != n:
+			full_data += All_sections[n]
 
-datagen = ImageDataGenerator()
-model.compile(loss='binary_crossentropy', optimizer=Adam(), metrics=['accuracy'])
-annealer = LearningRateScheduler(lambda x: 1e-3 * 0.9 **x)   #optional (adjusts learning rate over time)
-hist = model.fit_generator(datagen.flow(pre_x, pre_y, batch_size=8), steps_per_epoch=500, epochs=10, verbose=2, validation_data=(test_x, test_y))
-final_loss, final_acc = model.evaluate(test_x, test_y, verbose=0)
+	print("Training data length: " + str(len(full_data)))
+	print("Test data length: " + str(len(Test_sections)))
 
-print(final_acc)
-print(final_loss)
+	pre_x = []
+	pre_y = []
+	test_x = []
+	test_y = []
 
-y_hat = model.predict(test_x)     # This is a list of lists, where each sublist represents an image, and each number in it represents the likelihood of it being the associated number
-y_pred = []
-for i in range(len(y_hat)):
-    y_pred.append(round(y_hat[i][0]))
-cm = confusion_matrix(test_y, y_pred)
-print(cm)
 
+	for j in range(len(full_data)):
+		pre_x.append(full_data[j][1])
+		pre_y.append(full_data[j][0])
+
+	for j in range(len(Test_sections)):
+		test_x.append(Test_sections[j][1])
+		test_y.append(Test_sections[j][0])
+
+	#x_train, x_val, y_train, y_val = train_test_split(pre_x, pre_y, test_size=0.2)
+	#x_train = np.array(x_train)
+	#x_val = np.array(x_val)
+	#x_train = x_train.reshape(-1, 480, 640, 1)
+	#x_val = x_val.reshape(-1, 480, 640, 1)
+	pre_x = np.array(pre_x)
+	test_x = np.array(test_x)
+	#pre_y = to_categorical(pre_y)
+	#test_y = to_categorical(test_y)
+	print(pre_y[1000:1005])
+
+	model = Sequential()
+	model.add(Conv2D(32, (3, 3), input_shape=(75, 192, 1), activation='relu', ))
+	model.add(MaxPool2D((2, 2)))
+	model.add(Conv2D(64, (3, 3), activation='relu'))
+	model.add(MaxPool2D((2, 2)))
+	model.add(Conv2D(128, (3, 3), activation='relu'))
+	model.add(MaxPool2D((2, 2)))
+	model.add(Conv2D(128, (3, 3), activation='relu'))
+	model.add(MaxPool2D((2, 2)))
+	model.add(Flatten())
+	model.add(Dropout(0.5))
+	model.add(Dense(512, activation='relu'))
+	model.add(Dense(1), activation='sigmoid')
+
+	datagen = ImageDataGenerator()
+	model.compile(loss='binary_crossentropy', optimizer=Adam(), metrics=['accuracy'])
+	annealer = LearningRateScheduler(lambda x: 1e-3 * 0.9 **x)   #optional (adjusts learning rate over time)
+	hist = model.fit_generator(datagen.flow(pre_x, pre_y, batch_size=8), steps_per_epoch=500, epochs=10, verbose=2, validation_data=(test_x, test_y))
+	final_loss, final_acc = model.evaluate(test_x, test_y, verbose=0)
+
+	print(final_acc)
+	print(final_loss)
+
+	y_hat = model.predict(test_x)     # This is a list of lists, where each sublist represents an image, and each number in it represents the likelihood of it being the associated number
+	y_pred = []
+	for j in range(len(y_hat)):
+	    y_pred.append(round(y_hat[j][0]))
+	cm = confusion_matrix(test_y, y_pred)
+	print(cm)
+	accuracy_net.append(final_acc)
+	print(accuracy_net)
+	print("Accuracy so far... Is " + str(np.mean(accuracy_net)))
+
+print(accuracy_net)
+print(np.mean(accuracy_net))
+
+# Results:
+# Doom vs Cavern Death : Overall accuracy (76%), Overall by-song accuracy (75%)
+# Ending list: [0.9217, 1.0, 0.8974, 0.8536585365853658, 0.13106796138205576, 1.0, 0.904761905329568, 1.0, 0.45454545454545453, 0.9741379289791502, 0.9245283007621765, 0.9831932773109243, 0.1676300582341376, 0.3412698478925796, 0.837837841704085, 0.773109247704514]
+# 
